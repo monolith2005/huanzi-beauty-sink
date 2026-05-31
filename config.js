@@ -1,2 +1,2 @@
-window.HUANZI_LEADERBOARD_API = "";
-window.HUANZI_PK_API = "http://localhost:8787";
+window.HUANZI_LEADERBOARD_API = "https://huanzi-beauty-sink-production.up.railway.app";
+window.HUANZI_PK_API = "https://huanzi-beauty-sink-production.up.railway.app";
