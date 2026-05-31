@@ -554,7 +554,7 @@ button.primary:hover {
   z-index: 1000;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: clamp(12px, 3vh, 24px);
   background: rgba(90, 63, 58, 0.42);
 }
 
@@ -564,7 +564,8 @@ button.primary:hover {
 
 .modal-panel {
   width: min(720px, 100%);
-  max-height: min(86vh, 760px);
+  max-height: min(92vh, 760px);
+  max-height: min(92dvh, 760px);
   overflow: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -585,6 +586,47 @@ button.primary:hover {
 
 .modal-panel h2 {
   font-size: 28px;
+}
+
+.modal-animation {
+  width: min(220px, 52vw, 28vh);
+  width: min(220px, 52vw, 28dvh);
+  height: min(220px, 52vw, 28vh);
+  height: min(220px, 52vw, 28dvh);
+  aspect-ratio: var(--anim-ratio, 1);
+  margin: 4px auto 10px;
+  overflow: visible;
+}
+
+.modal-animation-win {
+  width: min(210px, 52vw, 26vh);
+  width: min(210px, 52vw, 26dvh);
+  height: min(210px, 52vw, 26vh);
+  height: min(210px, 52vw, 26dvh);
+}
+
+.modal-animation-loose {
+  width: min(180px, 46vw, 23vh);
+  width: min(180px, 46vw, 23dvh);
+  height: min(180px, 46vw, 23vh);
+  height: min(180px, 46vw, 23dvh);
+}
+
+.modal-animation canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.modal-rule-line {
+  font-weight: 800;
+  color: var(--ink) !important;
+}
+
+.modal-rule-explain {
+  margin-top: 14px !important;
+  color: var(--ink) !important;
 }
 
 .modal-panel button {
@@ -1744,40 +1786,50 @@ button.primary:hover {
 .pk-status {
   position: absolute;
   z-index: 55;
-  top: 6%;
+  top: 1.4%;
   left: 4%;
-  right: 4%;
+  right: auto;
+  width: min(50%, 360px);
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  gap: 8px;
-  padding: 8px 12px;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
   border: 2px solid var(--line);
-  border-radius: 18px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 3px 0 var(--line);
 }
 
 .pk-player-card {
   display: grid;
-  gap: 4px;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: 8px;
+  row-gap: 3px;
   min-width: 0;
 }
 
 .pk-player-card strong {
   font-family: var(--font-display);
-  font-size: 13px;
+  font-size: 12px;
   color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pk-player-card em {
   font-style: normal;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 .pk-progress-track {
   position: relative;
-  height: 6px;
+  grid-column: 1 / -1;
+  height: 5px;
   background: var(--accent-soft);
   border-radius: 3px;
   overflow: hidden;
@@ -1799,8 +1851,9 @@ button.primary:hover {
   display: grid;
   place-items: center;
   font-family: var(--font-display);
+  font-size: 13px;
   color: var(--accent-deep);
-  padding: 0 4px;
+  padding: 0 2px;
 }
 
 .pk-countdown-overlay {
@@ -1936,6 +1989,40 @@ button.primary:hover {
   .splash-card,
   .home-card {
     padding: 24px 18px;
+  }
+
+  .pk-status {
+    top: 1.4%;
+    left: 4%;
+    right: auto;
+    width: 48%;
+    gap: 4px;
+    padding: 3px 6px;
+    border-radius: 14px;
+  }
+
+  .pk-player-card {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    row-gap: 1px;
+  }
+
+  .pk-player-card strong {
+    font-size: 10px;
+    max-width: 100%;
+  }
+
+  .pk-player-card em {
+    font-size: 8px;
+  }
+
+  .pk-progress-track {
+    width: 100%;
+    height: 3px;
+  }
+
+  .pk-versus {
+    font-size: 11px;
   }
 
   .product-intro {
@@ -2390,24 +2477,19 @@ button.primary:hover {
   justify-content: flex-end;
 }
 
-/* PK mode: shift sequence zone down so the pk-status bar doesn't overlap the hint text */
-.sequence-zone.pk-offset {
-  top: 28%;
-}
-
 /* floating hint badge for process/exclude questions */
 .round-hint-badge {
   position: absolute;
-  top: 72px;
-  left: 12px;
+  top: 50px;
+  left: 18px;
   z-index: 50;
   background: rgba(255, 248, 240, 0.82);
   backdrop-filter: blur(6px);
   border-radius: 10px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   font-size: 12px;
   color: var(--ink);
-  max-width: 180px;
+  max-width: 260px;
   line-height: 1.4;
   pointer-events: none;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);

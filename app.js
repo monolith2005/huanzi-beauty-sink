@@ -25,33 +25,60 @@ function colorDepthScore(item) {
   return +(255 - (r * 0.299 + g * 0.587 + b * 0.114)).toFixed(1);
 }
 
-const products = (window.PRODUCTS || []).map((item) => ({
-  ...item,
-  display: {
-    advice: productAdvice[item.category] || `${item.product}属于${item.category || "美妆洗护"}，可用于产品识别和整理规则。`,
-  },
-  sort: {
-    tone: colorDepthScore(item),
-    height: item.ruleHeightScore ?? item.heightScore ?? item.visualHeight,
-    width: item.ruleWidthScore ?? item.widthScore,
-    displayHeight: item.displayHeightPx ?? item.heightScore ?? item.visualHeight,
-    size: item.ruleSizeScore ?? item.sizeScore,
-    flatness: item.flatnessScore ?? 0,
-    shapeOrder: item.shapeOrder ?? shapeScore(item),
-    capacity: item.capacityMl,
-    shape: item.shapeOrder ?? shapeScore(item),
-    category: categoryScore(item),
-    brand: brandScore(item),
-    usage: item.usageStageOrder ?? item.usageOrder,
-    symmetry: item.symmetryScore ?? symmetryScore(item),
-    colorCategory: categoryScore(item) * 100 + item.colorRank,
-  },
-}));
+const products = (window.PRODUCTS || []).map((item) => {
+  const displayMetrics = displayedOpaqueMetrics(item);
+  return {
+    ...item,
+    display: {
+      advice: productAdvice[item.category] || `${item.product}属于${item.category || "美妆洗护"}，可用于产品识别和整理规则。`,
+    },
+    displayOpaqueWidthPx: displayMetrics.width,
+    displayOpaqueHeightPx: displayMetrics.height,
+    displayOpaqueAreaPx: displayMetrics.area,
+    sort: {
+      tone: colorDepthScore(item),
+      height: displayMetrics.height,
+      width: displayMetrics.width,
+      displayHeight: displayMetrics.height,
+      size: displayMetrics.area,
+      flatness: item.flatnessScore ?? 0,
+      shapeOrder: item.shapeOrder ?? shapeScore(item),
+      capacity: item.capacityMl,
+      shape: item.shapeOrder ?? shapeScore(item),
+      category: categoryScore(item),
+      brand: brandScore(item),
+      usage: item.usageStageOrder ?? item.usageOrder,
+      symmetry: item.symmetryScore ?? symmetryScore(item),
+      colorCategory: categoryScore(item) * 100 + item.colorRank,
+    },
+  };
+});
+
+function positiveMetric(value, fallback = 1) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
+function displayedOpaqueMetrics(item) {
+  const sourceWidth = positiveMetric(item.widthPx);
+  const sourceHeight = positiveMetric(item.heightPx);
+  const contentWidth = positiveMetric(item.contentWidthPx, sourceWidth);
+  const contentHeight = positiveMetric(item.contentHeightPx, sourceHeight);
+  const displayedWidth = positiveMetric(item.displayWidthPx, sourceWidth);
+  const displayedHeight = positiveMetric(item.displayHeightPx, sourceHeight);
+  const width = +(displayedWidth * contentWidth / sourceWidth).toFixed(2);
+  const height = +(displayedHeight * contentHeight / sourceHeight).toFixed(2);
+  return {
+    width,
+    height,
+    area: +(width * height).toFixed(2),
+  };
+}
 
 const VISUAL_GAPS = {
-  height: 150,
-  width: 100,
-  size: 80000,
+  height: 18,
+  width: 16,
+  size: 2200,
 };
 
 const HEIGHT_CLASS_BOUNDS = {
@@ -84,27 +111,28 @@ function pickCoreItem(bucket, getValue, bounds, margin = 0.5) {
 
 const TALL_SHAPE_TYPES = new Set(["长管", "泵瓶", "高瓶", "软管", "异形瓶"]);
 const FLAT_SHAPE_TYPES = new Set(["扁盒", "球形/皂"]);
+const HEIGHT_CLASS_INDEX = { tiny: 0, small: 1, medium: 2, large: 3, xlarge: 4, xxlarge: 5 };
+const WIDTH_CLASS_INDEX = { w1: 0, w2: 1, w3: 2, w4: 3, w5: 4, w6: 5 };
+
+function pickFromSortedBucket(cls, items, classIndex, sortKey) {
+  const index = classIndex[cls];
+  if (index === undefined) return null;
+  const ordered = shuffle(items)
+    .filter((item) => Number.isFinite(item.sort[sortKey]))
+    .sort((a, b) => a.sort[sortKey] - b.sort[sortKey]);
+  if (!ordered.length) return null;
+  const start = Math.floor(index * ordered.length / 6);
+  const end = Math.max(start + 1, Math.floor((index + 1) * ordered.length / 6));
+  const bucket = ordered.slice(start, end);
+  return bucket[Math.floor(bucket.length / 2)] || null;
+}
 
 function pickFromHeightClass(cls, items) {
-  const all = items.filter((p) => p.realSizeClass === cls);
-  // 优先：竖向形态（瓶管泵），其次：高>宽，再次：高度主导显示高度（避免宽扁物品视觉排序错乱），最后：全档兜底
-  const vertical = all.filter((p) => TALL_SHAPE_TYPES.has(p.shapeType) && p.worldHeightCm > p.worldWidthCm * 0.9);
-  const tallish  = all.filter((p) => !FLAT_SHAPE_TYPES.has(p.shapeType) && p.worldHeightCm > p.worldWidthCm * 0.7);
-  const heightDominated = all.filter((p) => p.worldHeightCm >= p.worldWidthCm * 0.78);
-  const preferred = vertical.length >= 1 ? vertical : tallish.length >= 1 ? tallish : heightDominated.length >= 1 ? heightDominated : all;
-  const bucket = shuffle(preferred);
-  return pickCoreItem(bucket, (p) => p.worldHeightCm, HEIGHT_CLASS_BOUNDS[cls]);
+  return pickFromSortedBucket(cls, items, HEIGHT_CLASS_INDEX, "height");
 }
 
 function pickFromWidthClass(cls, items) {
-  const all = items.filter((p) => p.widthSizeClass === cls);
-  // 窄档：优先选宽度远小于高度的细长物（管/瓶）；宽档：优先选宽度远大于高度的扁平物
-  const isNarrow = ["w1", "w2", "w3"].includes(cls);
-  const preferred = isNarrow
-    ? all.filter((p) => p.worldHeightCm > p.worldWidthCm * 2)   // 高度≥2×宽度，非常细
-    : all.filter((p) => p.worldWidthCm > p.worldHeightCm * 0.9); // 宽度接近或大于高度，明显宽
-  const bucket = shuffle(preferred.length >= 2 ? preferred : all);
-  return pickCoreItem(bucket, (p) => p.worldWidthCm, WIDTH_CLASS_BOUNDS[cls]);
+  return pickFromSortedBucket(cls, items, WIDTH_CLASS_INDEX, "width");
 }
 
 const rules = {
@@ -112,10 +140,7 @@ const rules = {
     type: "sort",
     title: "高度从低到高",
     hint: ["观察瓶身或物件整体高度。", "只比较肉眼差别明显的高矮。", "矮瓶在前，高瓶在后。"],
-    pool: () => {
-      const classes = ["tiny", "small", "medium", "large", "xlarge", "xxlarge"];
-      return classes.map((cls) => pickFromHeightClass(cls, products)).filter(Boolean);
-    },
+    pool: () => visuallySpacedScalarPool(products, "height"),
     compare: (item) => item.sort.height,
     distractors: 0,
   },
@@ -123,10 +148,7 @@ const rules = {
     type: "sort",
     title: "高度从高到低",
     hint: ["观察瓶身或物件整体高度。", "只比较肉眼差别明显的高矮。", "高瓶在前，矮瓶在后。"],
-    pool: () => {
-      const classes = ["xxlarge", "xlarge", "large", "medium", "small", "tiny"];
-      return classes.map((cls) => pickFromHeightClass(cls, products)).filter(Boolean);
-    },
+    pool: () => visuallySpacedScalarPool(products, "height"),
     compare: (item) => -item.sort.height,
     distractors: 0,
   },
@@ -134,7 +156,7 @@ const rules = {
     type: "sort",
     title: "整体大小从小到大",
     hint: ["观察物件占画面的整体体量。", "细高但很窄的物体不一定大。", "大瓶、大盒靠后。"],
-    pool: () => distinctScalarPool(products, "size", VISUAL_GAPS.size),
+    pool: () => visuallySpacedScalarPool(products, "size"),
     compare: (item) => item.sort.size,
     distractors: 0,
   },
@@ -142,10 +164,7 @@ const rules = {
     type: "sort",
     title: "横向宽度从窄到宽",
     hint: ["观察物体左右跨度。", "细管靠前，宽盒和大盘靠后。", "不要被高度干扰。"],
-    pool: () => {
-      const classes = ["w1", "w2", "w3", "w4", "w5", "w6"];
-      return classes.map((cls) => pickFromWidthClass(cls, products)).filter(Boolean);
-    },
+    pool: () => visuallySpacedScalarPool(products, "width"),
     compare: (item) => item.sort.width,
     distractors: 0,
   },
@@ -153,10 +172,7 @@ const rules = {
     type: "sort",
     title: "横向宽度从宽到窄",
     hint: ["观察物体左右跨度。", "宽盒和大盘靠前，细管靠后。", "不要被高度干扰。"],
-    pool: () => {
-      const classes = ["w6", "w5", "w4", "w3", "w2", "w1"];
-      return classes.map((cls) => pickFromWidthClass(cls, products)).filter(Boolean);
-    },
+    pool: () => visuallySpacedScalarPool(products, "width"),
     compare: (item) => -item.sort.width,
     distractors: 0,
   },
@@ -202,7 +218,7 @@ const rules = {
       products.filter((item) => item.shapeType === "扁盒"),
       (item) => item.sort.size,
       products.filter((item) => item.shapeType !== "扁盒"),
-      6
+      VISUAL_GAPS.size
     ),
     compare: (item) => item.sort.size,
     distractors: 0,
@@ -215,7 +231,7 @@ const rules = {
       products.filter((item) => item.shapeType === "软管"),
       (item) => item.sort.height,
       products.filter((item) => item.shapeType !== "软管"),
-      6
+      VISUAL_GAPS.height
     ),
     compare: (item) => item.sort.height,
     distractors: 0,
@@ -228,7 +244,7 @@ const rules = {
       products.filter((item) => item.shapeType === "长管"),
       (item) => item.sort.height,
       products.filter((item) => item.shapeType !== "长管"),
-      6
+      VISUAL_GAPS.height
     ),
     compare: (item) => item.sort.height,
     distractors: 0,
@@ -261,7 +277,7 @@ const rules = {
     type: "sort",
     title: "同类产品大小整理",
     hint: ["这些物体属于同一种产品。", "观察同类内部的大小差异。", "从小到大补全。"],
-    pool: () => sameProductScalarPool(["香水", "腮红", "综合盘", "卸妆膏", "假睫毛", "泡澡球"], "size", 2.8),
+    pool: () => sameProductScalarPool(["香水", "腮红", "综合盘", "卸妆膏", "假睫毛", "泡澡球"], "size", VISUAL_GAPS.size),
     compare: (item) => item.sort.size,
     distractors: 0,
   },
@@ -302,8 +318,8 @@ const rules = {
   level18WashCare: {
     type: "process",
     title: "洗护护理整理",
-    scene: "洗完头或洗完澡后的整理。",
-    hint: ["先清洁。", "再护理或滋润。", "工具和局部护理靠后。"],
+    scene: "按护理区域整理：先头发，再身体，最后局部护理。",
+    hint: ["头发护理：洗发水 → 护发素 → 发膜。", "身体护理：香皂 → 身体乳。", "局部护理放最后：护手霜。"],
     pool: () => onePerStage(["头发清洁", "头发护理", "头发加强护理", "身体清洁", "身体滋润", "局部护理"]),
     compare: (item) => item.sort.usage,
     distractors: 3,
@@ -311,19 +327,20 @@ const rules = {
   level19MakeupArea: {
     type: "process",
     title: "彩妆区域整理",
-    scene: "完成妆容。",
-    hint: ["底妆在前。", "定妆和面部彩妆在中间。", "眼妆与唇妆靠后。"],
-    pool: () => onePerStage(["底妆", "遮瑕", "定妆", "面部彩妆", "睫毛产品", "唇妆"]),
+    scene: "底妆打底后，先面部彩妆和综合盘，再到睫毛。",
+    hint: ["底妆 → 遮瑕 → 定妆。", "面部彩妆包含腮红；综合盘按眼影/综合盘处理。", "综合盘排在睫毛产品前面。"],
+    pool: () => onePerStage(["底妆", "遮瑕", "定妆", "面部彩妆", "眼影/综合盘", "睫毛产品"]),
     compare: (item) => item.sort.usage,
+    distractorFilter: (item) => item.bigCategory !== "美妆",
     distractors: 3,
   },
   level21SkinBodyRoutine: {
     type: "process",
-    title: "护肤身体全流程",
-    scene: "洗澡后的完整护理。",
-    hint: ["身体清洁在最前。", "再滋润身体、局部护理。", "香氛作为收尾。"],
-    pool: () => onePerStage(["身体清洁", "身体去角质", "身体滋润", "局部护理", "家居香氛", "香氛"]),
-    compare: (item) => item.sort.usage,
+    title: "快速出门前准备流程",
+    scene: "洁面后快速护肤，再做出门前收尾。",
+    hint: ["洁面 → 化妆水 → 面霜。", "防晒之后补唇膏。", "香水作为出门前最后一步。"],
+    pool: () => onePerProductOption(["洗面奶", "爽肤水", "面霜", "防晒霜", "口红", "香水"]),
+    compare: (item) => item.__routineOrder ?? item.sort.usage,
     distractors: 3,
   },
   level22FullMakeup: {
@@ -398,12 +415,9 @@ Object.assign(rules, {
   excludeSmall: {
     type: "exclude",
     title: "找出小号物品",
-    hint: ["提示区里都是小号物品。", "从下方找出三件小号的放上去。"],
-    criterion: (item) => item.realSizeClass === "small",
-    pool: () => buildExcludePool(
-      (item) => item.realSizeClass === "small",
-      (item) => item.realSizeClass === "small" && item.worldHeightCm < 8.5 && item.worldWidthCm < 8
-    ),
+    hint: ["提示区里都是显示面积很小的物品。", "从下方找出三件看起来最小的放上去。"],
+    criterion: (item) => item.sort.size <= 3200,
+    pool: () => visualSmallPool(),
   },
   excludeLarge: {
     type: "exclude",
@@ -427,10 +441,13 @@ Object.assign(rules, {
   },
   excludeSkincare: {
     type: "exclude",
-    title: "找出护肤品",
-    hint: ["提示区里都是护肤品。", "找出所有护肤类产品。"],
-    criterion: (item) => item.bigCategory === "护肤",
-    pool: () => buildExcludePool((item) => item.bigCategory === "护肤"),
+    title: "找出洁面类产品",
+    hint: ["提示区里都是面部清洁产品。", "找出用于洁面清洁的物品。"],
+    criterion: (item) => item.usageStage === "清洁",
+    pool: () => buildExcludePool(
+      (item) => item.usageStage === "清洁",
+      (item) => ["洗面奶", "洁面慕斯"].includes(item.product)
+    ),
   },
   excludeMakeup: {
     type: "exclude",
@@ -451,19 +468,19 @@ Object.assign(rules, {
   },
   level23ExfoliateRoutine: {
     type: "process",
-    title: "深层清洁护理",
-    scene: "周末深层护理日。",
-    hint: ["去角质在清洁后。", "再做保湿滋润。", "香氛放松收尾。"],
-    pool: () => onePerStage(["身体去角质", "身体清洁", "身体滋润", "局部护理", "香氛", "家居香氛"]),
-    compare: (item) => item.sort.usage,
+    title: "深层修护护肤流程",
+    scene: "先卸妆清洁，再做面膜和后续修护。",
+    hint: ["卸妆 → 洁面 → 面膜/清洁面膜。", "然后爽肤水 → 精华。", "最后面霜或乳液锁住护理。"],
+    pool: () => onePerProductOption([["卸妆膏", "卸妆油", "卸妆水"], ["洗面奶", "洁面慕斯"], "面膜", "爽肤水", "精华液", ["面霜", "乳液"]]),
+    compare: (item) => item.__routineOrder ?? item.sort.usage,
     distractors: 3,
   },
   level24EyeCareRoutine: {
     type: "process",
-    title: "眼部精细护理",
-    scene: "注重眼部细节护理。",
-    hint: ["卸妆清洁打底。", "眼部精华轻拍。", "日间记得防晒。"],
-    pool: () => onePerStage(["卸妆清洁", "清洁", "水类", "眼部护理", "保湿", "防晒"]),
+    title: "夜间眼部护理",
+    scene: "夜间先卸妆清洁，再做眼部护理。",
+    hint: ["卸妆清洁 → 清洁 → 水类。", "精华之后再眼部护理。", "最后保湿收尾。"],
+    pool: () => onePerStage(["卸妆清洁", "清洁", "水类", "精华", "眼部护理", "保湿"]),
     compare: (item) => item.sort.usage,
     distractors: 3,
   },
@@ -478,11 +495,11 @@ Object.assign(rules, {
   },
   level26ScalpCare: {
     type: "process",
-    title: "头皮深层护理",
-    scene: "头发深层滋养护理。",
-    hint: ["洗发先行。", "护发素或发膜加强。", "局部护理最后。"],
-    pool: () => onePerStage(["头发清洁", "头发护理", "头发加强护理", "身体清洁", "身体去角质", "局部护理"]),
-    compare: (item) => item.sort.usage,
+    title: "快速出门妆流程",
+    scene: "护肤打底后，快速完成底妆、定妆和唇妆。",
+    hint: ["保湿 → 防晒。", "气垫/粉底 → 定妆。", "综合盘/眉毛之后，口红收尾。"],
+    pool: () => onePerProductOption([["面霜", "乳液"], "防晒霜", ["气垫", "粉底液"], "散粉", "综合盘", "口红"]),
+    compare: (item) => item.__routineOrder ?? item.sort.usage,
     distractors: 3,
   },
 });
@@ -564,7 +581,6 @@ const SEQUENCE_LENGTH = 6;
 const EXAMPLE_COUNT = 3;
 const ANSWER_COUNT = 3;
 const MAX_HINTS = 3;
-const HINT_BANK_KEY = "huanzi_hint_bank_v1";
 const PLACE_SOUND_SRC = "assets/sounds/ka-da-lock.wav";
 const URGENT_SECONDS = 5;
 const MAX_FREE_ITEMS = 10;
@@ -849,6 +865,21 @@ function distinctScalarPool(items, key, minGap, options = {}) {
   return selected.length >= SEQUENCE_LENGTH ? selected : ordered.filter((_, index) => index % 3 === 0);
 }
 
+function visuallySpacedScalarPool(items, key, options = {}) {
+  const { allowSameProduct = false } = options;
+  const ordered = shuffle(items)
+    .filter((item) => Number.isFinite(item.sort[key]))
+    .sort((a, b) => a.sort[key] - b.sort[key]);
+  const seenProducts = new Set();
+  const unique = ordered.filter((item) => {
+    if (allowSameProduct) return true;
+    if (seenProducts.has(item.product)) return false;
+    seenProducts.add(item.product);
+    return true;
+  });
+  return spreadSequenceItems(unique.length >= SEQUENCE_LENGTH ? unique : ordered, SEQUENCE_LENGTH);
+}
+
 function rankedWithDistractors(correctItems, scoreFn, _distractors = [], minGap = 0) {
   const ordered = shuffle(correctItems)
     .filter((item) => Number.isFinite(scoreFn(item)))
@@ -882,6 +913,12 @@ function rankedWithDistractors(correctItems, scoreFn, _distractors = [], minGap 
 
 function spreadSequenceItems(sorted, total) {
   if (sorted.length <= total) return sorted;
+  if (total === 6) {
+    return [0, 0.3, 0.58, 0.78, 0.92, 1].map((position) => {
+      const sourceIndex = Math.round(position * (sorted.length - 1));
+      return sorted[sourceIndex];
+    });
+  }
   return Array.from({ length: total }, (_, index) => {
     const sourceIndex = Math.round((index * (sorted.length - 1)) / (total - 1));
     return sorted[sourceIndex];
@@ -931,6 +968,28 @@ function onePerStage(stages) {
       return picked;
     })
     .filter(Boolean);
+}
+
+function onePerProductOption(productOptions) {
+  const usedProducts = new Set();
+  return productOptions
+    .map((option, index) => {
+      const names = Array.isArray(option) ? option : [option];
+      const candidates = products.filter((item) => names.includes(item.product) && !usedProducts.has(item.product));
+      const fallback = products.filter((item) => names.includes(item.product));
+      const picked = sample(candidates.length ? candidates : fallback);
+      if (picked) usedProducts.add(picked.product);
+      if (picked) picked.__routineOrder = index + 1;
+      return picked;
+    })
+    .filter(Boolean);
+}
+
+function visualSmallPool() {
+  return {
+    matchingPool: shuffle(products.filter((item) => item.sort.size <= 3200)),
+    nonMatchingPool: shuffle(products.filter((item) => item.sort.size >= 4300)),
+  };
 }
 
 function sameProductScalarPool(productNames, key, minGap) {
@@ -1132,9 +1191,7 @@ function pickSequence(ruleKey) {
   const pool = rules[ruleKey].pool();
   if (pool.length < SEQUENCE_LENGTH) return [];
   const sorted = shuffle(pool).sort((a, b) => rules[ruleKey].compare(a) - rules[ruleKey].compare(b));
-  const total = SEQUENCE_LENGTH;
-  const start = sorted.length > total ? Math.floor(Math.random() * (sorted.length - total + 1)) : 0;
-  return sorted.slice(start, start + total).map((item) => item.id);
+  return spreadSequenceItems(sorted, SEQUENCE_LENGTH).map((item) => item.id);
 }
 
 function campaignRuleForNextRound() {
@@ -1143,8 +1200,22 @@ function campaignRuleForNextRound() {
 
 function roundFeedbackText(rule) {
   if (rule.type === "exclude") return rule.hint[1] || rule.hint[0];
-  if (rule.type === "process") return `${rule.scene || ""} ${rule.hint[0] || ""}`.trim();
+  if (rule.type === "process") return rule.scene || rule.hint.join(" ");
   return "观察前三件，把剩下三个物品按规律补全";
+}
+
+function ruleExplanation(rule, items = []) {
+  if (!rule) return "";
+  if (rule === rules.level18WashCare) {
+    return "规则说明：先整理头发护理流程（洗发水 → 护发素 → 发膜），再整理身体护理（香皂 → 身体乳），最后放局部护理（护手霜）。";
+  }
+  if (rule.type === "process" && rule.hint?.length) {
+    return `规则说明：${rule.hint.join(" ")}`;
+  }
+  if (rule.type === "sort" && items.length >= 2) {
+    return "规则说明：观察前三件的递增或递减趋势，后面三件继续按同一个维度排列。";
+  }
+  return "";
 }
 
 function pickDistractorIds(rule, sequenceIds, count = 2) {
@@ -1157,6 +1228,7 @@ function pickDistractorIds(rule, sequenceIds, count = 2) {
 
   const candidates = products
     .filter((item) => !used.has(item.id))
+    .filter((item) => !rule?.distractorFilter || rule.distractorFilter(item, sequenceItems, rule))
     .map((item) => {
       let score = Math.random();
       if (answerProducts.has(item.product)) score += 0.35;
@@ -1181,6 +1253,9 @@ function pickDistractorIds(rule, sequenceIds, count = 2) {
 
 function startRound(ruleKey = "random", options = {}) {
   const { resetTimer = true } = options;
+  if (state.mode === "campaign") {
+    state.hints = MAX_HINTS;
+  }
   const ruleKeys = ruleKey === "random"
     ? shuffle(Object.keys(rules).filter((k) => rules[k].type !== "exclude"))
     : [ruleKey, ...shuffle(Object.keys(rules).filter((key) => key !== ruleKey && rules[key].type !== "exclude"))];
@@ -1291,7 +1366,6 @@ function showHomepage() {
   els.pkPanel.classList.add("hidden");
   els.pkLobby.classList.add("hidden");
   els.pkStatus.classList.add("hidden");
-  document.querySelector(".sequence-zone")?.classList.remove("pk-offset");
   els.pkCountdownOverlay.classList.add("hidden");
   if (!state.profile) openRegisterModal();
 }
@@ -1303,13 +1377,7 @@ function startCampaign() {
   state.round = target - 1;
   state.endlessScore = 0;
   unlockAudio();
-  const savedHints = localStorage.getItem(HINT_BANK_KEY);
-  if (savedHints === null) {
-    state.hints = MAX_HINTS;
-    localStorage.setItem(HINT_BANK_KEY, String(MAX_HINTS));
-  } else {
-    state.hints = Math.min(MAX_HINTS, Math.max(0, Number(savedHints)));
-  }
+  state.hints = MAX_HINTS;
   els.splash.classList.add("hidden");
   els.homepage.classList.add("hidden");
   els.levelSelectPanel.classList.add("hidden");
@@ -1381,14 +1449,19 @@ function timeUp() {
   const answerItems = state.answerIds.map((id) => itemById(id));
   const usedItems = state.sequenceIds.map((id) => itemById(id));
   els.summary.innerHTML = `
-    <p>规则：${state.rule.title}</p>
+    ${modalAnimationHtml("loose")}
+    ${modalRuleLine(state.rule)}
     <p>正确补全：${answerItems.map((item) => item.product).join("、")}</p>
     <p>完整序列：${usedItems.map((item) => item.product).join("、")}</p>
+    <div class="modal-actions-anchor"></div>
     <h3 class="summary-heading">恭喜你获得图鉴</h3>
     ${renderProductIntroCards(usedItems)}
+    <p class="modal-rule-explain">${ruleExplanation(state.rule, usedItems)}</p>
   `;
   els.modalHome.classList.remove("hidden");
+  placeModalActions();
   els.modal.classList.remove("hidden");
+  playSummaryAnimation();
 }
 
 function render() {
@@ -2046,11 +2119,12 @@ function checkAnswer() {
   }
 
   if (state.rule.type === "exclude") {
-    const criterion = state.rule.criterion;
+    const answerSet = new Set(state.answerIds);
+    const placedSet = new Set(state.slots);
     let correct = true;
     document.querySelectorAll(".answer-slot").forEach((slot, index) => {
-      const item = itemById(state.slots[index]);
-      const ok = item && criterion(item);
+      const id = state.slots[index];
+      const ok = answerSet.has(id) && placedSet.size === state.answerIds.length;
       slot.classList.toggle("correct", ok);
       slot.classList.toggle("wrong", !ok);
       if (!ok) correct = false;
@@ -2110,8 +2184,6 @@ function finishRound() {
   els.timer.classList.remove("danger");
   if (state.mode === "campaign") {
     markCampaignComplete(state.round);
-    state.hints = Math.min(MAX_HINTS, state.hints + 1);
-    localStorage.setItem(HINT_BANK_KEY, String(state.hints));
   }
   recordSeenProducts();
   const used = ROUND_SECONDS - Math.max(0, state.timeLeft + 1);
@@ -2125,15 +2197,19 @@ function finishRound() {
   els.modalNext.textContent = state.round >= MAX_LEVEL ? "通关总结" : "下一关";
   els.modalNext.classList.remove("hidden");
   els.summary.innerHTML = `
-    <p>规则：${state.rule.title}</p>
+    ${modalAnimationHtml("win")}
+    ${modalRuleLine(state.rule)}
     <p>用时：${Math.floor(used / 60)}分${used % 60}秒</p>
-    <p>错误：${state.mistakes}，提示剩余：${state.hints} 个</p>
-    <p>完整序列：${usedItems.map((item) => item.product).join("、")}</p>
+    <div class="modal-actions-anchor"></div>
     <h3 class="summary-heading">恭喜你获得图鉴</h3>
     ${renderProductIntroCards(usedItems)}
+    <p>完整序列：${usedItems.map((item) => item.product).join("、")}</p>
+    <p class="modal-rule-explain">${ruleExplanation(state.rule, usedItems)}</p>
   `;
   els.modalHome.classList.remove("hidden");
+  placeModalActions();
   els.modal.classList.remove("hidden");
+  playSummaryAnimation();
 }
 
 function finishEndlessRound() {
@@ -2166,6 +2242,7 @@ function showCampaignComplete() {
     <p>你已经掌握了美妆洗护台的主要整理规律。</p>
   `;
   els.modalHome.classList.remove("hidden");
+  placeModalActionsDefault();
   els.modal.classList.remove("hidden");
 }
 
@@ -2187,6 +2264,7 @@ async function endEndlessRun() {
     <div class="mini-board">${renderLeaderboardRows(leaderboard.slice(0, 5))}</div>
   `;
   els.modalHome.classList.remove("hidden");
+  placeModalActionsDefault();
   els.modal.classList.remove("hidden");
 }
 
@@ -2303,9 +2381,6 @@ function showHint() {
   }
 
   state.hints -= 1;
-  if (state.mode === "campaign") {
-    localStorage.setItem(HINT_BANK_KEY, String(state.hints));
-  }
   moveToSlot(state.answerIds[targetIndex], targetIndex, `提示已放上正确物品，还剩 ${state.hints} 个`);
   updateHintButton();
 }
@@ -3577,7 +3652,6 @@ function beginPkGame(match) {
   state.round = 0;
   state.pk.levelsCompleted = 0;
   els.pkStatus.classList.remove("hidden");
-  document.querySelector(".sequence-zone")?.classList.add("pk-offset");
   document.querySelector(".sequence-zone")?.classList.remove("hidden");
   document.querySelector(".sink-zone")?.classList.remove("hidden");
   document.querySelector(".hud")?.classList.remove("hidden");
@@ -3681,9 +3755,9 @@ function finishPkRound(match) {
     <p>原因：${escapeHtml(match.result?.reason || "对局结束")}</p>
   `;
   els.modalNext.classList.add("hidden");
+  placeModalActionsDefault();
   state.mode = "pk-result";
   els.pkStatus.classList.add("hidden");
-  document.querySelector(".sequence-zone")?.classList.remove("pk-offset");
 }
 
 function savePkHistory(record) {
@@ -3708,7 +3782,6 @@ function exitPkAll() {
   state.pk = null;
   els.pkLobby.classList.add("hidden");
   els.pkStatus.classList.add("hidden");
-  document.querySelector(".sequence-zone")?.classList.remove("pk-offset");
   els.pkCountdownOverlay.classList.add("hidden");
   els.pkPanel.classList.add("hidden");
   els.modalNext.classList.remove("hidden");
@@ -3725,6 +3798,147 @@ function escapeHtml(value) {
     '"': "&quot;",
     "'": "&#39;",
   })[char]);
+}
+
+function modalAnimationHtml(kind) {
+  const data = window.HUANZI_ANIMATIONS?.[kind];
+  const ratio = data?.w && data?.h ? data.w / data.h : 1;
+  return `<div class="modal-animation modal-animation-${kind}" data-modal-animation="${kind}" style="--anim-ratio:${ratio}" aria-hidden="true"></div>`;
+}
+
+function modalRuleLine(rule) {
+  return `<p class="modal-rule-line">规则：${escapeHtml(rule?.title || "")}</p>`;
+}
+
+function placeModalActions() {
+  const actions = els.modalNext.closest(".modal-actions");
+  const anchor = els.summary.querySelector(".modal-actions-anchor");
+  if (actions && anchor) anchor.replaceWith(actions);
+}
+
+function placeModalActionsDefault() {
+  const actions = els.modalNext.closest(".modal-actions");
+  const panel = els.summary.closest(".modal-panel");
+  if (actions && panel && actions.previousElementSibling !== els.summary) {
+    panel.insertBefore(actions, els.summary.nextSibling);
+  }
+}
+
+function playSummaryAnimation() {
+  const host = els.summary.querySelector("[data-modal-animation]");
+  if (!host) return;
+  playJsonAnimation(host, host.dataset.modalAnimation);
+}
+
+function playJsonAnimation(host, kind) {
+  const data = window.HUANZI_ANIMATIONS?.[kind];
+  if (!data) return;
+  if (host.dataset.animationReady === kind) return;
+  host.dataset.animationReady = kind;
+  host.innerHTML = "";
+  const canvas = document.createElement("canvas");
+  canvas.width = data.w || 500;
+  canvas.height = data.h || 500;
+  fitModalAnimation(host, canvas, data, kind);
+  host.appendChild(canvas);
+  const ctx = canvas.getContext("2d");
+  const assets = Object.fromEntries((data.assets || []).map((asset) => [asset.id, asset]));
+  const images = {};
+  (data.assets || []).forEach((asset) => {
+    if (!asset.p) return;
+    const image = new Image();
+    image.src = `${asset.u || ""}${asset.p}`;
+    images[asset.id] = image;
+  });
+  const frameStart = data.ip || 0;
+  const frameEnd = data.op || 60;
+  const frameRate = data.fr || 30;
+  const startedAt = performance.now();
+
+  function valueAt(prop, frame, fallback) {
+    if (!prop) return fallback;
+    if (!prop.a) return prop.k ?? fallback;
+    const keys = prop.k || [];
+    if (!keys.length) return fallback;
+    let currentIndex = 0;
+    let next = null;
+    for (let i = 0; i < keys.length; i += 1) {
+      if (keys[i].t <= frame) currentIndex = i;
+      if (keys[i].t > frame) {
+        next = keys[i];
+        break;
+      }
+    }
+    let current = keys[currentIndex];
+    if (current && current.s === undefined && current.k === undefined && currentIndex > 0) {
+      const previous = keys[currentIndex - 1];
+      return previous.e ?? previous.s ?? previous.k ?? fallback;
+    }
+    const start = current.s ?? current.k ?? fallback;
+    const end = current.e ?? next?.s ?? next?.k ?? start;
+    if (!next || next.t === current.t) return start;
+    const t = Math.max(0, Math.min(1, (frame - current.t) / (next.t - current.t)));
+    if (Array.isArray(start)) return start.map((v, i) => v + ((end[i] ?? v) - v) * t);
+    return start + (end - start) * t;
+  }
+
+  function applyTransform(layer, frame) {
+    const ks = layer.ks || {};
+    const position = valueAt(ks.p, frame, [0, 0, 0]);
+    const anchor = valueAt(ks.a, frame, [0, 0, 0]);
+    const scale = valueAt(ks.s, frame, [100, 100, 100]);
+    const rotate = valueAt(ks.r, frame, 0);
+    const opacity = valueAt(ks.o, frame, 100);
+    ctx.globalAlpha *= Math.max(0, Math.min(1, opacity / 100));
+    ctx.translate(position[0] || 0, position[1] || 0);
+    ctx.rotate((Array.isArray(rotate) ? rotate[0] : rotate) * Math.PI / 180);
+    ctx.scale((scale[0] ?? 100) / 100, (scale[1] ?? 100) / 100);
+    ctx.translate(-(anchor[0] || 0), -(anchor[1] || 0));
+  }
+
+  function drawLayer(layer, frame) {
+    if (frame < (layer.ip ?? frameStart) || frame >= (layer.op ?? frameEnd)) return;
+    ctx.save();
+    applyTransform(layer, frame);
+    if (layer.ty === 2) {
+      const image = images[layer.refId];
+      const asset = assets[layer.refId];
+      if (image?.complete && asset) ctx.drawImage(image, 0, 0, asset.w || image.width, asset.h || image.height);
+    } else if (layer.ty === 0) {
+      const comp = assets[layer.refId];
+      if (comp?.layers) drawLayers(comp.layers, frame - (layer.st || 0));
+    }
+    ctx.restore();
+  }
+
+  function drawLayers(layers, frame) {
+    [...(layers || [])].reverse().forEach((layer) => drawLayer(layer, frame));
+  }
+
+  function tick() {
+    const elapsedFrames = ((performance.now() - startedAt) / 1000) * frameRate;
+    const frame = frameStart + (elapsedFrames % Math.max(1, frameEnd - frameStart));
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawLayers(data.layers, frame);
+    host._modalAnimationRaf = requestAnimationFrame(tick);
+  }
+  if (host._modalAnimationRaf) cancelAnimationFrame(host._modalAnimationRaf);
+  tick();
+}
+
+function fitModalAnimation(host, canvas, data, kind) {
+  const ratio = data?.w && data?.h ? data.w / data.h : 1;
+  const maxWidth = kind === "loose" ? 180 : kind === "win" ? 210 : 220;
+  const viewportWidth = Math.max(1, window.innerWidth || document.documentElement.clientWidth || 375);
+  const viewportHeight = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 667);
+  const widthLimit = Math.min(maxWidth, viewportWidth * (kind === "loose" ? 0.46 : 0.52));
+  const heightLimit = viewportHeight * (kind === "loose" ? 0.23 : kind === "win" ? 0.26 : 0.28);
+  const displayWidth = Math.max(1, Math.floor(Math.min(widthLimit, heightLimit * ratio)));
+  const displayHeight = Math.max(1, Math.floor(displayWidth / ratio));
+  host.style.width = `${displayWidth}px`;
+  host.style.height = `${displayHeight}px`;
+  canvas.style.width = `${displayWidth}px`;
+  canvas.style.height = `${displayHeight}px`;
 }
 
 function giveUp() {
@@ -3774,13 +3988,18 @@ function giveUp() {
   els.modalTitle.textContent = "正确答案";
   els.modalNext.textContent = "返回主页";
   els.summary.innerHTML = `
-    <p>规则：${state.rule.title}</p>
+    ${modalAnimationHtml("loose")}
+    ${modalRuleLine(state.rule)}
     <p>完整序列：${usedItems.map((item) => item.product).join("、")}</p>
     <p>正确补全：${answerItems.map((item) => item.product).join("、")}</p>
+    <div class="modal-actions-anchor"></div>
     <h3 class="summary-heading">恭喜你获得图鉴</h3>
     ${renderProductIntroCards(usedItems)}
+    <p class="modal-rule-explain">${ruleExplanation(state.rule, usedItems)}</p>
   `;
+  placeModalActions();
   els.modal.classList.remove("hidden");
+  playSummaryAnimation();
 }
 
 function switchBgm(track) {
