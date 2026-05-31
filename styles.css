@@ -2392,7 +2392,7 @@ button.primary:hover {
 
 /* PK mode: shift sequence zone down so the pk-status bar doesn't overlap the hint text */
 .sequence-zone.pk-offset {
-  top: 22%;
+  top: 28%;
 }
 
 /* floating hint badge for process/exclude questions */
