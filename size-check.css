@@ -1,0 +1,144 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: #2a2522;
+  background: #f7f4ef;
+  font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+}
+
+.size-page {
+  width: min(1440px, 100%);
+  margin: 0 auto;
+  padding: 28px;
+}
+
+.size-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.size-header p {
+  margin: 0 0 6px;
+  color: #8c5e5e;
+  font-size: 13px;
+}
+
+.size-header h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.toggle-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #d9c9bd;
+  border-radius: 8px;
+  background: #fffaf5;
+  font-size: 14px;
+}
+
+.shelf {
+  padding: 18px;
+  border: 1px solid #d9c9bd;
+  border-radius: 8px;
+  background: linear-gradient(#fffaf5 0 0) padding-box;
+}
+
+.size-shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  align-items: end;
+  gap: 18px 14px;
+}
+
+.size-item {
+  display: grid;
+  justify-items: center;
+  align-items: end;
+  min-width: 0;
+  min-height: 172px;
+  padding: 10px 6px 8px;
+  border-bottom: 3px solid #b98d74;
+}
+
+.size-item img {
+  display: block;
+  width: auto;
+  height: var(--check-height);
+  max-width: 92px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 10px rgba(68, 48, 40, 0.22));
+}
+
+.size-name {
+  width: 100%;
+  min-height: 34px;
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: center;
+  color: #4b403b;
+  overflow-wrap: anywhere;
+}
+
+.size-meta {
+  color: #8c6c5a;
+  font-size: 11px;
+}
+
+.table-wrap {
+  margin-top: 22px;
+  overflow-x: auto;
+  border: 1px solid #d9c9bd;
+  border-radius: 8px;
+  background: #fffaf5;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #eaded4;
+  text-align: left;
+  font-size: 13px;
+}
+
+th {
+  color: #6f4e44;
+  background: #f2e8df;
+}
+
+@media (max-width: 640px) {
+  .size-page {
+    padding: 18px;
+  }
+
+  .size-header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .size-shelf {
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+    gap: 14px 10px;
+  }
+
+  .size-item {
+    min-height: 158px;
+  }
+}

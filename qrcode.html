@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<title>扫码玩游戏</title>
+<style>
+  body{margin:0;display:grid;place-items:center;min-height:100vh;background:#fdf6f0;font-family:system-ui,sans-serif;color:#4a3728;}
+  .card{text-align:center;padding:32px 40px;background:#fff;border-radius:24px;box-shadow:0 4px 24px rgba(0,0,0,.08);}
+  h1{font-size:20px;margin:0 0 4px;}
+  p{font-size:13px;color:#9a8070;margin:0 0 20px;}
+  #qr{margin:0 auto 20px;}
+  .url{font-size:12px;color:#a07855;word-break:break-all;background:#fdf6f0;padding:8px 12px;border-radius:8px;}
+  .note{font-size:11px;color:#bbb;margin-top:12px;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Huanzi's Beauty Sink</h1>
+  <p>扫描下方二维码开始游戏</p>
+  <div id="qr"></div>
+  <div class="url" id="urlText"></div>
+  <p class="note">⚠️ 链接有效期约 1 小时，数据保存在各自设备本地</p>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+  const url = "https://better-doodles-report.loca.lt";
+  document.getElementById("urlText").textContent = url;
+  QRCode.toCanvas(document.getElementById("qr"), url, {
+    width: 220,
+    margin: 2,
+    color: { dark: "#4a3728", light: "#ffffff" }
+  });
+</script>
+</body>
+</html>

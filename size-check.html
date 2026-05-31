@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>产品相对大小检查</title>
+    <link rel="stylesheet" href="./size-check.css" />
+  </head>
+  <body>
+    <main class="size-page">
+      <header class="size-header">
+        <div>
+          <p>Huanzi's Beauty Sink</p>
+          <h1>产品相对大小检查</h1>
+        </div>
+        <label class="toggle-all">
+          <input id="showAllToggle" type="checkbox" />
+          <span>只看代表款</span>
+        </label>
+      </header>
+
+      <section class="shelf" aria-label="按现实尺寸铺开的产品">
+        <div id="sizeShelf" class="size-shelf"></div>
+      </section>
+
+      <section class="table-wrap" aria-label="尺寸数据">
+        <table>
+          <thead>
+            <tr>
+              <th>产品</th>
+              <th>代表尺寸</th>
+              <th>游戏高度</th>
+              <th>数量</th>
+            </tr>
+          </thead>
+          <tbody id="sizeRows"></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script src="./products.js"></script>
+    <script src="./product-scale.js"></script>
+    <script src="./size-check.js"></script>
+  </body>
+</html>

@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Huanzi's Beauty Sink Demo</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main id="splash" class="splash-shell" aria-label="开始页">
+      <section class="splash-card">
+        <p class="splash-kicker">Welcome to</p>
+        <h1 class="splash-title">Huanzi’s Beauty Sink</h1>
+        <p class="splash-sub">整理美妆、洗护、香氛和工具，找到隐藏规律</p>
+        <button id="splashStartBtn" class="primary splash-start" type="button">开始</button>
+      </section>
+    </main>
+
+    <main id="homepage" class="home-shell hidden" aria-label="玩法选择">
+      <section class="home-card">
+        <header class="home-header">
+          <p class="home-kicker">Huanzi's Beauty Sink</p>
+          <h1 class="home-title">玩法选择</h1>
+          <p class="home-sub">挑选游戏模式，开始整理你的美妆洗护台</p>
+        </header>
+        <div class="profile-strip">
+          <div id="profileAvatar" class="profile-avatar-display">?</div>
+          <div class="nav-icons-wrap">
+          <div class="nav-icons">
+            <button id="soundBtn" class="nav-icon-btn" type="button" title="音量调节">
+              <svg id="soundBtnIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              <span>音量</span>
+            </button>
+            <button id="sceneBtn" class="nav-icon-btn" type="button" title="切换场景">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="14" rx="3"/><path d="M3 9h18"/><path d="M9 21h6"/><path d="M12 17v4"/></svg>
+              <span>场景</span>
+            </button>
+            <button id="collectionBtn" class="nav-icon-btn" type="button" title="图鉴">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              <span>图鉴</span>
+            </button>
+            <button id="leaderboardBtn" class="nav-icon-btn" type="button" title="排行榜">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h.01M12 2l2.09 6.26L20 9l-5 4.87 1.18 6.88L12 17.77 7.82 20.75 9 13.87 4 9l5.91-.74L12 2z"/></svg>
+              <span>排行</span>
+            </button>
+            <button id="profileBadge" class="nav-icon-btn profile-badge-mini" type="button" aria-label="编辑个人信息" title="设置">
+              <span class="profile-avatar-mini"></span>
+              <span>设置</span>
+            </button>
+          </div>
+            <div id="mixerPopover" class="mixer-popover hidden">
+              <div class="mixer-row">
+                <span class="mixer-label">音乐</span>
+                <input type="range" id="bgmSlider" class="mixer-slider" min="0" max="100" value="80">
+                <span class="mixer-val" id="bgmVal">80</span>
+              </div>
+              <div class="mixer-row">
+                <span class="mixer-label">音效</span>
+                <input type="range" id="sfxSlider" class="mixer-slider" min="0" max="100" value="80">
+                <span class="mixer-val" id="sfxVal">80</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mode-grid">
+          <button class="mode-card mode-active" data-mode="campaign">
+            <span class="mode-tag">推荐</span>
+            <span class="mode-name">闯关模式</span>
+            <span class="mode-desc">共 30 关，由浅入深</span>
+          </button>
+          <button class="mode-card" data-mode="pk">
+            <span class="mode-tag">对战</span>
+            <span class="mode-name">PK 模式</span>
+            <span class="mode-desc">和好友比拼速度</span>
+          </button>
+          <button class="mode-card" data-mode="endless">
+            <span class="mode-tag">挑战</span>
+            <span class="mode-name">无限模式</span>
+            <span class="mode-desc">限时冲击排行榜</span>
+          </button>
+          <button class="mode-card" data-mode="free">
+            <span class="mode-tag">放松</span>
+            <span class="mode-name">自由模式</span>
+            <span class="mode-desc">挑场景挑物品，随你摆</span>
+          </button>
+        </div>
+        <button id="confirmModeBtn" class="primary wide-action" type="button">确定</button>
+        <section id="endlessPanel" class="endless-panel hidden" aria-label="无限模式设置">
+          <button id="endlessBackBtn" class="panel-back-btn" type="button">← 返回</button>
+          <div class="panel-title">
+            <h2>无限模式</h2>
+            <p>规定时间内答对越多，排名越靠前</p>
+          </div>
+          <div class="time-options" role="group" aria-label="选择挑战时间">
+            <button class="time-option selected" data-seconds="60">1 分钟</button>
+            <button class="time-option" data-seconds="180">3 分钟</button>
+            <button class="time-option" data-seconds="300">5 分钟</button>
+            <button class="time-option" data-custom="true">自定义</button>
+          </div>
+          <label id="customTimeWrap" class="custom-time hidden">
+            <span>自定义分钟</span>
+            <select id="customMinuteWheel" aria-label="自定义分钟滚轮"></select>
+          </label>
+          <button id="startEndlessBtn" class="primary wide-action" type="button">开始无限挑战</button>
+        </section>
+        <section id="levelSelectPanel" class="level-select-panel hidden" aria-label="闯关模式关卡选择">
+          <button id="campaignBackBtn" class="panel-back-btn" type="button">← 返回</button>
+          <div class="panel-title">
+            <h2>闯关模式</h2>
+            <p id="levelSelectHint">选择要挑战的关卡（已通关：0）</p>
+          </div>
+          <div id="levelGrid" class="level-grid" role="list"></div>
+          <button id="startCampaignBtn" class="primary wide-action" type="button">开始闯关</button>
+        </section>
+        <section id="freePanel" class="free-panel hidden" aria-label="自由模式场景选择">
+          <div class="panel-title">
+            <h2>自由模式 · 选场景</h2>
+            <p>挑一个场景，再选要摆的物品</p>
+          </div>
+          <div id="sceneGrid" class="scene-grid"></div>
+          <button id="freeSceneNextBtn" class="primary wide-action" type="button" disabled>下一步：选物品</button>
+        </section>
+        <section id="freeItemPanel" class="free-panel hidden" aria-label="自由模式物品选择">
+          <div class="panel-title">
+            <h2>自由模式 · 选物品</h2>
+            <p id="freeItemHint">最多选 10 件物品</p>
+          </div>
+          <div id="freeItemGrid" class="free-item-grid"></div>
+          <div class="free-item-actions">
+            <button id="freeItemBackBtn" type="button">上一步</button>
+            <button id="freeStartBtn" class="primary" type="button" disabled>开始摆设</button>
+          </div>
+        </section>
+        <section id="pkPanel" class="pk-panel hidden" aria-label="PK 模式设置">
+          <button id="pkBackBtn" class="panel-back-btn" type="button">← 返回</button>
+          <div class="panel-title">
+            <h2>PK 模式</h2>
+            <p id="pkStatusText">选关数 → 创建或加入房间</p>
+          </div>
+          <div class="pk-level-options" role="group" aria-label="选择 PK 关数">
+            <button class="pk-level-option selected" data-levels="5" type="button">5 关 · 100s</button>
+            <button class="pk-level-option" data-levels="10" type="button">10 关 · 200s</button>
+          </div>
+          <div class="pk-room-box">
+            <button id="createRoomBtn" class="primary" type="button">创建房间</button>
+            <label class="pk-code-field">
+              <span>输入房间码</span>
+              <input id="roomCodeInput" maxlength="4" placeholder="ABCD" />
+            </label>
+            <button id="joinRoomBtn" type="button">加入房间</button>
+          </div>
+          <p id="pkSetupError" class="form-error"></p>
+        </section>
+      </section>
+    </main>
+
+    <main id="game" class="scene-shell hidden" aria-label="Huanzi's Beauty Sink Demo">
+      <section id="stage" class="stage">
+        <header class="hud">
+          <div class="hud-title">
+            <p>Huanzi's Beauty Sink</p>
+            <h1>美妆洗护整理</h1>
+          </div>
+          <div class="hud-stats">
+            <span id="roundLabel">第 1 / 30 关</span>
+            <span id="timer">01:00</span>
+          </div>
+        </header>
+
+        <div id="roundHintBadge" class="round-hint-badge hidden"></div>
+
+        <section id="pkStatus" class="pk-status hidden" aria-label="PK 进度">
+          <div class="pk-player-card self">
+            <strong id="pkSelfName">我</strong>
+            <em id="pkSelfCount">0 / 5</em>
+            <div class="pk-progress-track"><span id="pkSelfBar"></span></div>
+          </div>
+          <div class="pk-versus">VS</div>
+          <div class="pk-player-card opponent">
+            <strong id="pkOpponentName">对手</strong>
+            <em id="pkOpponentCount">0 / 5</em>
+            <div class="pk-progress-track"><span id="pkOpponentBar"></span></div>
+          </div>
+        </section>
+
+        <div id="roundIntroOverlay" class="round-intro-overlay hidden">
+          <div class="round-intro-card">
+            <p class="round-intro-type">流程题</p>
+            <h2 id="roundIntroTitle"></h2>
+            <p id="roundIntroScene"></p>
+            <ul id="roundIntroHints"></ul>
+            <button id="roundIntroBtn" class="primary" type="button">开始</button>
+          </div>
+        </div>
+
+        <div id="pkCountdownOverlay" class="pk-countdown-overlay hidden">
+          <div class="pk-countdown-card">
+            <div class="pk-countdown-opponents">
+              <strong id="pkCountSelfName">我</strong>
+              <span class="pk-countdown-vs">VS</span>
+              <strong id="pkCountOppName">对手</strong>
+            </div>
+            <div class="pk-countdown-info">
+              <span id="pkCountTarget">5 关</span>
+              <span id="pkCountTimer">100 秒</span>
+            </div>
+            <div class="pk-countdown-number" id="pkCountNumber">3</div>
+          </div>
+        </div>
+
+        <section id="pkLobby" class="pk-lobby hidden" aria-label="PK 房间">
+          <div class="pk-lobby-card">
+            <div class="pk-lobby-room-code">
+              <span class="pk-lobby-code-label">房间码</span>
+              <strong id="pkLobbyCode">----</strong>
+            </div>
+            <div class="pk-lobby-players">
+              <div class="pk-lobby-player">
+                <strong id="pkLobbySelfName">我</strong>
+                <span id="pkLobbySelfStatus" class="pk-lobby-status">未准备</span>
+              </div>
+              <span class="pk-lobby-vs">VS</span>
+              <div class="pk-lobby-player">
+                <strong id="pkLobbyOppName">等待中</strong>
+                <span id="pkLobbyOppStatus" class="pk-lobby-status">等待加入</span>
+              </div>
+            </div>
+            <p id="pkLobbyHint" class="pk-lobby-hint">把房间码发给好友邀请加入</p>
+            <div class="pk-lobby-actions">
+              <button id="pkLobbyLeaveBtn" type="button">离开</button>
+              <button id="pkLobbyReadyBtn" class="primary" type="button">准备</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="sequence-zone" aria-label="梳妆台序列题">
+          <div class="zone-title">
+            <span id="feedback">观察前三件，补全后面的物品</span>
+          </div>
+          <div id="sequence" class="sequence-row"></div>
+        </section>
+
+        <section class="sink-zone" aria-label="洗手池待选物品">
+          <div id="pool" class="sink-pile"></div>
+        </section>
+
+        <section id="freePlayZone" class="free-play-zone hidden" aria-label="自由摆放区">
+          <div id="freeItemsLayer" class="free-items-layer"></div>
+        </section>
+
+        <div id="photoFrame" class="photo-frame hidden" data-frame="full" aria-hidden="true">
+          <span class="corner-handle corner-tl" data-corner="tl"></span>
+          <span class="corner-handle corner-tr" data-corner="tr"></span>
+          <span class="corner-handle corner-bl" data-corner="bl"></span>
+          <span class="corner-handle corner-br" data-corner="br"></span>
+        </div>
+
+        <div id="photoControls" class="photo-controls hidden">
+          <button id="photoFrameFullBtn" type="button" data-preset="full">全画</button>
+          <button id="photoFrameTableBtn" type="button" data-preset="table">台面</button>
+          <button id="photoFrameSinkBtn" type="button" data-preset="sink">池子</button>
+          <button id="shutterBtn" class="camera-btn" type="button" aria-label="拍照"><svg class="camera-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M28,8H22l-2-3H12L10,8H4a2,2,0,0,0-2,2V24a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V10A2,2,0,0,0,28,8Z"/><circle cx="16" cy="17" r="5"/></svg></button>
+          <button id="exitPhotoBtn" type="button" aria-label="退出拍照">×</button>
+        </div>
+
+        <aside class="detail-panel" aria-label="选中物品信息">
+          <p id="detailName"></p>
+          <span id="detailAdvice"></span>
+        </aside>
+
+        <footer class="actions">
+          <button id="hintBtn">提示道具</button>
+          <button id="checkBtn" class="primary">检查</button>
+          <button id="giveUpBtn">认输</button>
+          <button id="homeBtn">主页</button>
+        </footer>
+
+        <footer class="free-actions hidden" id="freeActions">
+          <button id="freeResetBtn">重置摆放</button>
+          <button id="freePhotoBtn">拍照</button>
+          <button id="freeMemoriesBtn">回忆</button>
+          <button id="freeHomeBtn">退出</button>
+        </footer>
+      </section>
+    </main>
+
+    <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-panel">
+        <p id="modalKicker">Level Clear</p>
+        <h2 id="modalTitle">整理完成</h2>
+        <div id="summary"></div>
+        <div class="modal-actions">
+          <button id="modalHome">返回主页</button>
+          <button id="modalNext" class="primary">下一关</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="registerModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="registerTitle">
+      <div class="modal-panel register-panel">
+        <p>Player Profile</p>
+        <h2 id="registerTitle">创建玩家档案</h2>
+        <div id="avatarChoices" class="avatar-grid" aria-label="选择头像"></div>
+        <label class="name-field">
+          <span>昵称</span>
+          <input id="playerNameInput" maxlength="12" placeholder="输入你的名字" />
+        </label>
+        <p id="registerError" class="form-error"></p>
+        <div class="modal-actions">
+          <button id="saveProfileBtn" class="primary" type="button">保存</button>
+          <button id="logoutBtn" class="logout-btn" type="button">退出登录</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="leaderboardModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
+      <div class="modal-panel leaderboard-panel">
+        <p id="leaderboardKicker">Leaderboard</p>
+        <h2 id="leaderboardTitle">无限模式排行榜</h2>
+        <div id="leaderboardList" class="leaderboard-list"></div>
+        <div class="modal-actions">
+          <button id="closeLeaderboardBtn" type="button">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="confirmHomeModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirmHomeTitle">
+      <div class="modal-panel confirm-home-panel">
+        <h2 id="confirmHomeTitle">确定要返回主页吗？</h2>
+        <p>当前进度将丢失</p>
+        <div class="modal-actions">
+          <button id="confirmHomeCancel" type="button">取消</button>
+          <button id="confirmHomeOk" class="primary" type="button">确定</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="collectionModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="collectionTitle">
+      <div class="modal-panel collection-panel">
+        <p id="collectionKicker">Collection</p>
+        <h2 id="collectionTitle">图鉴</h2>
+        <div class="collection-tabs" role="tablist">
+          <button class="collection-tab selected" data-tab="catalog" type="button">产品图鉴</button>
+          <button class="collection-tab" data-tab="pk" type="button">对战记录</button>
+          <button class="collection-tab" data-tab="memories" type="button">回忆</button>
+        </div>
+        <div id="collectionBody" class="collection-body"></div>
+        <div class="modal-actions">
+          <button id="closeCollectionBtn" type="button">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="savePhotoModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="savePhotoTitle">
+      <div class="modal-panel save-photo-panel">
+        <p>Photo</p>
+        <h2 id="savePhotoTitle">保存这张照片</h2>
+        <img id="savePhotoPreview" class="save-photo-preview" alt="拍照预览" />
+        <label class="save-photo-field">
+          <span>名字</span>
+          <input id="savePhotoName" maxlength="24" placeholder="给这张照片起个名字" />
+        </label>
+        <div class="modal-actions">
+          <button id="discardPhotoBtn" class="trash-btn" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>舍弃</button>
+          <button id="savePhotoBtn" class="primary" type="button">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="deleteConfirmModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
+      <div class="modal-panel delete-confirm-panel">
+        <h2 id="deleteConfirmTitle">删除这张回忆？</h2>
+        <p>删除后不可恢复</p>
+        <div class="modal-actions">
+          <button id="cancelDeleteBtn" type="button">取消</button>
+          <button id="confirmDeleteBtn" class="primary" type="button">删除</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="sceneModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="sceneModalTitle">
+      <div class="modal-panel scene-modal-panel">
+        <p>Scenes</p>
+        <h2 id="sceneModalTitle">切换场景</h2>
+        <div id="sceneModalGrid" class="scene-grid"></div>
+        <div class="modal-actions">
+          <button id="closeSceneModalBtn" type="button">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="memoryFullscreen" class="memory-fullscreen hidden" role="dialog" aria-modal="true" aria-label="回忆大图">
+      <button class="memory-fullscreen-close" id="memoryFullscreenClose" aria-label="关闭">×</button>
+      <img id="memoryFullscreenImg" alt="回忆大图" />
+    </div>
+
+    <audio id="bgmMenu" src="assets/sounds/grandpas-theme.mp3" loop preload="auto"></audio>
+    <audio id="bgmGame" src="assets/sounds/settling-in.mp3" loop preload="auto"></audio>
+
+    <script src="./config.js"></script>
+    <script src="./products.js"></script>
+    <script src="./product-scale.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

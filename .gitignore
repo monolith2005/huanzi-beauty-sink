@@ -1,0 +1,5 @@
+node_modules/
+leaderboard-data.json
+.DS_Store
+__pycache__/
+*.pyc

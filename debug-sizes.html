@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>物品尺寸一览</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f0; color: #333; padding: 24px; }
+    h1 { font-size: 18px; margin-bottom: 16px; }
+    .controls { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+    .controls label { font-size: 13px; }
+    select, input { font-size: 13px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 6px; background: #fff; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    th { background: #e8e3dc; padding: 8px 10px; text-align: left; font-size: 12px; color: #555; cursor: pointer; user-select: none; white-space: nowrap; }
+    th:hover { background: #d8d2c8; }
+    th.sorted-asc::after { content: " ▲"; }
+    th.sorted-desc::after { content: " ▼"; }
+    td { padding: 6px 10px; font-size: 12px; border-top: 1px solid #f0ede8; vertical-align: middle; }
+    tr:hover td { background: #faf8f4; }
+    .thumb { width: 36px; height: 44px; object-fit: contain; display: block; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .badge-small  { background: #d4edda; color: #1a6430; }
+    .badge-medium { background: #fff3cd; color: #856404; }
+    .badge-large  { background: #f8d7da; color: #842029; }
+    .badge-xlarge { background: #6f42c1; color: #fff; }
+    .num { font-variant-numeric: tabular-nums; }
+    .bar-wrap { width: 80px; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; }
+    .bar-fill { height: 100%; background: #a07855; border-radius: 4px; }
+    .filter-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter-chip { padding: 3px 10px; border-radius: 20px; border: 1px solid #ccc; background: #fff; font-size: 12px; cursor: pointer; }
+    .filter-chip.active { background: #a07855; border-color: #a07855; color: #fff; }
+    #count { font-size: 13px; color: #888; }
+  </style>
+</head>
+<body>
+  <h1>物品尺寸一览</h1>
+  <div class="controls">
+    <div class="filter-row" id="categoryFilter"></div>
+    <input id="search" placeholder="搜索品名…" style="width:160px" />
+    <span id="count"></span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th data-col="image">图</th>
+        <th data-col="product">品名</th>
+        <th data-col="category">类别</th>
+        <th data-col="realSizeClass">档位</th>
+        <th data-col="worldHeightCm">真实高(cm)</th>
+        <th data-col="worldWidthCm">真实宽(cm)</th>
+        <th data-col="sizeScore">面积分</th>
+        <th data-col="heightPx">图片高(px)</th>
+        <th data-col="widthPx">图片宽(px)</th>
+        <th data-col="displayHeightPx">渲染高(px)</th>
+        <th data-col="heightLabel">高矮标签</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script src="./products.js"></script>
+  <script src="./product-scale.js"></script>
+  <script>
+    const products = window.PRODUCTS || [];
+    let sortCol = "worldHeightCm";
+    let sortDir = 1;
+    let activeCategory = "全部";
+    let searchText = "";
+
+    // categories
+    const categories = ["全部", ...new Set(products.map(p => p.category))].sort((a,b) => a === "全部" ? -1 : b === "全部" ? 1 : a.localeCompare(b, "zh"));
+    const filterEl = document.getElementById("categoryFilter");
+    categories.forEach(cat => {
+      const btn = document.createElement("button");
+      btn.className = "filter-chip" + (cat === "全部" ? " active" : "");
+      btn.textContent = cat;
+      btn.onclick = () => {
+        activeCategory = cat;
+        filterEl.querySelectorAll(".filter-chip").forEach(b => b.classList.toggle("active", b.textContent === cat));
+        render();
+      };
+      filterEl.appendChild(btn);
+    });
+
+    document.getElementById("search").addEventListener("input", e => { searchText = e.target.value.trim(); render(); });
+
+    let maxArea = Math.max(...products.map(p => p.sizeScore || 1));
+
+    function badgeClass(cls) {
+      return { tiny: "badge-small", small: "badge-small", medium: "badge-medium", large: "badge-large", xlarge: "badge-xlarge" }[cls] || "badge-medium";
+    }
+
+    function render() {
+      let rows = products.slice();
+      if (activeCategory !== "全部") rows = rows.filter(p => p.category === activeCategory);
+      if (searchText) rows = rows.filter(p => (p.product||"").includes(searchText) || (p.name||"").includes(searchText));
+      rows.sort((a, b) => {
+        const av = a[sortCol] ?? -Infinity;
+        const bv = b[sortCol] ?? -Infinity;
+        return (av < bv ? -1 : av > bv ? 1 : 0) * sortDir;
+      });
+      document.getElementById("count").textContent = `共 ${rows.length} 件`;
+      const tbody = document.getElementById("tbody");
+      tbody.innerHTML = rows.map(p => {
+        const area = p.sizeScore || 0;
+        const pct = Math.round(area / maxArea * 100);
+        const cls = p.realSizeClass || p.sizeClass || "medium";
+        return `<tr>
+          <td><img class="thumb" src="${p.image}" alt="${p.name}" /></td>
+          <td>${p.name}</td>
+          <td>${p.category || ""}</td>
+          <td><span class="badge ${badgeClass(cls)}">${p.sizeLabel || cls}</span></td>
+          <td class="num" style="font-weight:600">${p.worldHeightCm ?? "—"}</td>
+          <td class="num">${p.worldWidthCm ?? "—"}</td>
+          <td class="num"><span class="bar-wrap"><span class="bar-fill" style="width:${pct}%"></span></span> ${area}</td>
+          <td class="num" style="color:#aaa">${p.heightPx ?? "—"}</td>
+          <td class="num" style="color:#aaa">${p.widthPx ?? "—"}</td>
+          <td class="num">${p.displayHeightPx ?? "—"}</td>
+          <td>${p.heightLabel || "—"}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    // sort on header click
+    document.querySelectorAll("th[data-col]").forEach(th => {
+      th.addEventListener("click", () => {
+        const col = th.dataset.col;
+        if (col === "image") return;
+        if (sortCol === col) sortDir *= -1;
+        else { sortCol = col; sortDir = 1; }
+        document.querySelectorAll("th[data-col]").forEach(t => t.classList.remove("sorted-asc","sorted-desc"));
+        th.classList.add(sortDir === 1 ? "sorted-asc" : "sorted-desc");
+        render();
+      });
+    });
+
+    // initial sort indicator
+    document.querySelector(`th[data-col="${sortCol}"]`).classList.add("sorted-asc");
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "huanzi-beauty-sink",
+  "version": "1.0.0",
+  "main": "leaderboard-server.js",
+  "scripts": {
+    "start": "node leaderboard-server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
