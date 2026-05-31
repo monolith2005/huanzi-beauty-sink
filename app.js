@@ -2090,6 +2090,7 @@ function finishRound() {
   }
   if (state.mode === "pk-game") {
     state.pk.levelsCompleted += 1;
+    state.hints = Math.min(MAX_HINTS, state.hints + 1);
     bump("camera-win");
     playPlaceSound();
     submitPkProgress();
@@ -2135,6 +2136,7 @@ function finishRound() {
 function finishEndlessRound() {
   recordSeenProducts();
   state.endlessScore += 1;
+  state.hints = Math.min(MAX_HINTS, state.hints + 1);
   clearSlotMarks();
   els.feedback.textContent = `已通过 ${state.endlessScore} 关`;
   bump("camera-win");
@@ -2284,6 +2286,7 @@ function formatDuration(seconds) {
 }
 
 function showHint() {
+  console.log("[hint] mode:", state.mode, "hints:", state.hints, "slots:", JSON.stringify(state.slots), "answerIds:", JSON.stringify(state.answerIds), "pool:", JSON.stringify(state.pool));
   if (state.hints <= 0) {
     els.feedback.textContent = "提示道具已用完";
     updateHintButton();
@@ -2291,17 +2294,23 @@ function showHint() {
   }
 
   const targetIndex = hintTargetIndex();
+  console.log("[hint] targetIndex:", targetIndex);
   if (targetIndex === -1) {
     els.feedback.textContent = "不需要提示了";
     updateHintButton();
     return;
   }
 
+  const hintId = state.answerIds[targetIndex];
+  const inPool = state.pool.indexOf(hintId);
+  const inSlots = state.slots.indexOf(hintId);
+  console.log("[hint] hintId:", hintId, "inPool:", inPool, "inSlots:", inSlots);
+
   state.hints -= 1;
   if (state.mode === "campaign") {
     localStorage.setItem(HINT_BANK_KEY, String(state.hints));
   }
-  moveToSlot(state.answerIds[targetIndex], targetIndex, `提示已放上正确物品，还剩 ${state.hints} 个`);
+  moveToSlot(hintId, targetIndex, `提示已放上正确物品，还剩 ${state.hints} 个`);
   updateHintButton();
 }
 
