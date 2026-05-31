@@ -562,6 +562,7 @@ const SEQUENCE_LENGTH = 6;
 const EXAMPLE_COUNT = 3;
 const ANSWER_COUNT = 3;
 const MAX_HINTS = 3;
+const HINT_BANK_KEY = "huanzi_hint_bank_v1";
 const PLACE_SOUND_SRC = "assets/sounds/ka-da-lock.wav";
 const URGENT_SECONDS = 5;
 const MAX_FREE_ITEMS = 10;
@@ -582,21 +583,21 @@ const SCENES = [
     name: "梳妆盥洗台",
     desc: "默认场景，洗手与基础梳妆",
     image: "assets/backgrounds/final_bg.png",
-    unlockLevel: 1,
+    unlockLevel: 0,
   },
   {
     id: "dressing_room",
     name: "明星化妆间",
     desc: "好莱坞灯泡环绕的化妆台",
     image: "assets/backgrounds/dressing_room.png",
-    unlockLevel: 1,
+    unlockLevel: 5,
   },
   {
     id: "seaside_resort",
     name: "海边度假酒店露台",
     desc: "蓝海白云的露台收纳台",
     image: "assets/backgrounds/seaside_resort.png",
-    unlockLevel: 1,
+    unlockLevel: 10,
   },
 ];
 
@@ -717,6 +718,7 @@ const els = {
   closeCollectionBtn: document.querySelector("#closeCollectionBtn"),
   freePanel: document.querySelector("#freePanel"),
   sceneGrid: document.querySelector("#sceneGrid"),
+  freePanelHomeBtn: document.querySelector("#freePanelHomeBtn"),
   freeSceneNextBtn: document.querySelector("#freeSceneNextBtn"),
   freeItemPanel: document.querySelector("#freeItemPanel"),
   freeItemGrid: document.querySelector("#freeItemGrid"),
@@ -1202,7 +1204,6 @@ function startRound(ruleKey = "random", options = {}) {
     state.draggedId = null;
     state.roundCleared = false;
     state.mistakes = 0;
-    state.hints = 0;
     state.startedAt = Date.now();
     state.round += 1;
     els.feedback.textContent = roundFeedbackText(rule);
@@ -1235,7 +1236,6 @@ function startRound(ruleKey = "random", options = {}) {
   state.draggedId = null;
   state.roundCleared = false;
   state.mistakes = 0;
-  state.hints = 0;
   state.startedAt = Date.now();
   state.round += 1;
   els.feedback.textContent = roundFeedbackText(state.rule);
@@ -1300,6 +1300,13 @@ function startCampaign() {
   state.round = target - 1;
   state.endlessScore = 0;
   unlockAudio();
+  const savedHints = localStorage.getItem(HINT_BANK_KEY);
+  if (savedHints === null) {
+    state.hints = MAX_HINTS;
+    localStorage.setItem(HINT_BANK_KEY, String(MAX_HINTS));
+  } else {
+    state.hints = Math.min(MAX_HINTS, Math.max(0, Number(savedHints)));
+  }
   els.splash.classList.add("hidden");
   els.homepage.classList.add("hidden");
   els.levelSelectPanel.classList.add("hidden");
@@ -1314,6 +1321,7 @@ function startEndless() {
   state.round = 0;
   state.endlessScore = 0;
   state.endlessDurationSeconds = state.selectedTimeSeconds;
+  state.hints = MAX_HINTS;
   unlockAudio();
   els.splash.classList.add("hidden");
   els.homepage.classList.add("hidden");
@@ -1386,7 +1394,7 @@ function render() {
   const hintText = (state.rule?.type === "process" || state.rule?.type === "exclude")
     ? roundFeedbackText(state.rule) : "";
   els.roundHintBadge.textContent = hintText;
-  els.roundHintBadge.classList.toggle("hidden", !hintText || state.mode === "pk-game");
+  els.roundHintBadge.classList.toggle("hidden", !hintText);
 
   els.sequence.innerHTML = "";
   state.exampleIds.forEach((id) => {
@@ -1423,8 +1431,8 @@ function hintTargetIndex() {
 }
 
 function updateHintButton() {
-  const remaining = Math.max(0, MAX_HINTS - state.hints);
-  const canUse = (state.mode === "campaign" || state.mode === "endless") && remaining > 0 && hintTargetIndex() !== -1;
+  const remaining = Math.max(0, state.hints);
+  const canUse = ["campaign", "endless", "pk-game"].includes(state.mode) && remaining > 0 && hintTargetIndex() !== -1;
   els.hintBtn.textContent = `提示 ${remaining}/${MAX_HINTS}`;
   els.hintBtn.disabled = !canUse;
 }
@@ -2098,6 +2106,8 @@ function finishRound() {
   els.timer.classList.remove("danger");
   if (state.mode === "campaign") {
     markCampaignComplete(state.round);
+    state.hints = Math.min(MAX_HINTS, state.hints + 1);
+    localStorage.setItem(HINT_BANK_KEY, String(state.hints));
   }
   recordSeenProducts();
   const used = ROUND_SECONDS - Math.max(0, state.timeLeft + 1);
@@ -2113,7 +2123,7 @@ function finishRound() {
   els.summary.innerHTML = `
     <p>规则：${state.rule.title}</p>
     <p>用时：${Math.floor(used / 60)}分${used % 60}秒</p>
-    <p>错误：${state.mistakes}，提示：${state.hints}</p>
+    <p>错误：${state.mistakes}，提示剩余：${state.hints} 个</p>
     <p>完整序列：${usedItems.map((item) => item.product).join("、")}</p>
     <h3 class="summary-heading">恭喜你获得图鉴</h3>
     ${renderProductIntroCards(usedItems)}
@@ -2274,8 +2284,8 @@ function formatDuration(seconds) {
 }
 
 function showHint() {
-  if (state.hints >= MAX_HINTS) {
-    els.feedback.textContent = "本轮提示已用完";
+  if (state.hints <= 0) {
+    els.feedback.textContent = "提示道具已用完";
     updateHintButton();
     return;
   }
@@ -2287,8 +2297,11 @@ function showHint() {
     return;
   }
 
-  state.hints += 1;
-  moveToSlot(state.answerIds[targetIndex], targetIndex, `提示已放上正确物品，还剩 ${MAX_HINTS - state.hints} 次`);
+  state.hints -= 1;
+  if (state.mode === "campaign") {
+    localStorage.setItem(HINT_BANK_KEY, String(state.hints));
+  }
+  moveToSlot(state.answerIds[targetIndex], targetIndex, `提示已放上正确物品，还剩 ${state.hints} 个`);
   updateHintButton();
 }
 
@@ -2515,7 +2528,7 @@ function closeSceneSelector() {
 
 function isSceneUnlocked(scene) {
   if (!scene) return false;
-  return maxCompletedLevel() >= (scene.unlockLevel || 1);
+  return scene.unlockLevel === 0 || maxCompletedLevel() >= scene.unlockLevel;
 }
 
 function maxCompletedLevel() {
@@ -3552,7 +3565,7 @@ function beginPkGame(match) {
   document.querySelector(".hud")?.classList.remove("hidden");
   document.querySelector(".hud")?.classList.add("pk-active");
   document.querySelector(".hud-title")?.classList.add("hidden");
-  els.roundHintBadge.classList.add("hidden");
+  state.hints = MAX_HINTS;
   els.actionsFooter.classList.remove("hidden");
   startPkCountdown(match);
 }
@@ -3695,6 +3708,18 @@ function giveUp() {
     state.timerId = null;
     stopUrgentEffects();
     endEndlessRun();
+    return;
+  }
+  if (state.mode === "pk-game") {
+    clearPkPolling();
+    pkRequest(`/pk/matches/${state.pk.matchId}/forfeit`, {
+      method: "POST",
+      body: { playerId: state.pk.playerId },
+    }).then((data) => {
+      if (data?.match) finishPkRound(data.match);
+    }).catch(() => {
+      finishPkRound({ result: { type: "winner", winnerId: "" }, self: {}, opponent: {} });
+    });
     return;
   }
   window.clearInterval(state.timerId);
@@ -4185,6 +4210,7 @@ els.startCampaignBtn.addEventListener("click", () => {
   startCampaign();
 });
 
+els.freePanelHomeBtn.addEventListener("click", () => { playUiClickSound(); showHomepage(); });
 els.freeSceneNextBtn.addEventListener("click", () => { playUiClickSound(); showFreeItemPanel(); });
 els.freeItemBackBtn.addEventListener("click", () => {
   playUiClickSound();
