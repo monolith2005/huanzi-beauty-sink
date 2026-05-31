@@ -3177,13 +3177,24 @@ function playUiClickSound() {
   } catch (_) {}
 }
 
-function loadCanvasImage(url) {
+async function loadCanvasImage(url) {
+  let src = url;
+  try {
+    const resp = await fetch(url);
+    const blob = await resp.blob();
+    src = URL.createObjectURL(blob);
+  } catch (_) {}
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = url;
+    img.onload = () => {
+      if (src !== url) URL.revokeObjectURL(src);
+      resolve(img);
+    };
+    img.onerror = (e) => {
+      if (src !== url) URL.revokeObjectURL(src);
+      reject(e);
+    };
+    img.src = src;
   });
 }
 
