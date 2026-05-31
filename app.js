@@ -87,10 +87,12 @@ const FLAT_SHAPE_TYPES = new Set(["扁盒", "球形/皂"]);
 
 function pickFromHeightClass(cls, items) {
   const all = items.filter((p) => p.realSizeClass === cls);
-  // 优先：竖向形态（瓶管泵），其次：高>宽，最后：全档兜底
+  // 优先：竖向形态（瓶管泵），其次：高>宽，再次：高度主导显示高度（避免宽扁物品视觉排序错乱），最后：全档兜底
   const vertical = all.filter((p) => TALL_SHAPE_TYPES.has(p.shapeType) && p.worldHeightCm > p.worldWidthCm * 0.9);
   const tallish  = all.filter((p) => !FLAT_SHAPE_TYPES.has(p.shapeType) && p.worldHeightCm > p.worldWidthCm * 0.7);
-  const bucket = shuffle(vertical.length >= 1 ? vertical : tallish.length >= 1 ? tallish : all);
+  const heightDominated = all.filter((p) => p.worldHeightCm >= p.worldWidthCm * 0.78);
+  const preferred = vertical.length >= 1 ? vertical : tallish.length >= 1 ? tallish : heightDominated.length >= 1 ? heightDominated : all;
+  const bucket = shuffle(preferred);
   return pickCoreItem(bucket, (p) => p.worldHeightCm, HEIGHT_CLASS_BOUNDS[cls]);
 }
 
@@ -2286,7 +2288,6 @@ function formatDuration(seconds) {
 }
 
 function showHint() {
-  console.log("[hint] mode:", state.mode, "hints:", state.hints, "slots:", JSON.stringify(state.slots), "answerIds:", JSON.stringify(state.answerIds), "pool:", JSON.stringify(state.pool));
   if (state.hints <= 0) {
     els.feedback.textContent = "提示道具已用完";
     updateHintButton();
@@ -2294,23 +2295,17 @@ function showHint() {
   }
 
   const targetIndex = hintTargetIndex();
-  console.log("[hint] targetIndex:", targetIndex);
   if (targetIndex === -1) {
     els.feedback.textContent = "不需要提示了";
     updateHintButton();
     return;
   }
 
-  const hintId = state.answerIds[targetIndex];
-  const inPool = state.pool.indexOf(hintId);
-  const inSlots = state.slots.indexOf(hintId);
-  console.log("[hint] hintId:", hintId, "inPool:", inPool, "inSlots:", inSlots);
-
   state.hints -= 1;
   if (state.mode === "campaign") {
     localStorage.setItem(HINT_BANK_KEY, String(state.hints));
   }
-  moveToSlot(hintId, targetIndex, `提示已放上正确物品，还剩 ${state.hints} 个`);
+  moveToSlot(state.answerIds[targetIndex], targetIndex, `提示已放上正确物品，还剩 ${state.hints} 个`);
   updateHintButton();
 }
 
@@ -3639,6 +3634,11 @@ async function submitPkProgress() {
 
 function finishPkRound(match) {
   clearPkPolling();
+  if (state.pk?.countdownTimer) {
+    clearInterval(state.pk.countdownTimer);
+    state.pk.countdownTimer = null;
+  }
+  els.pkCountdownOverlay.classList.add("hidden");
   const me = match.self || {};
   const opp = match.opponent || {};
   let result = "draw";
