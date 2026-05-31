@@ -1291,6 +1291,7 @@ function showHomepage() {
   els.pkPanel.classList.add("hidden");
   els.pkLobby.classList.add("hidden");
   els.pkStatus.classList.add("hidden");
+  document.querySelector(".sequence-zone")?.classList.remove("pk-offset");
   els.pkCountdownOverlay.classList.add("hidden");
   if (!state.profile) openRegisterModal();
 }
@@ -3576,6 +3577,7 @@ function beginPkGame(match) {
   state.round = 0;
   state.pk.levelsCompleted = 0;
   els.pkStatus.classList.remove("hidden");
+  document.querySelector(".sequence-zone")?.classList.add("pk-offset");
   document.querySelector(".sequence-zone")?.classList.remove("hidden");
   document.querySelector(".sink-zone")?.classList.remove("hidden");
   document.querySelector(".hud")?.classList.remove("hidden");
@@ -3681,6 +3683,7 @@ function finishPkRound(match) {
   els.modalNext.classList.add("hidden");
   state.mode = "pk-result";
   els.pkStatus.classList.add("hidden");
+  document.querySelector(".sequence-zone")?.classList.remove("pk-offset");
 }
 
 function savePkHistory(record) {
@@ -3705,6 +3708,7 @@ function exitPkAll() {
   state.pk = null;
   els.pkLobby.classList.add("hidden");
   els.pkStatus.classList.add("hidden");
+  document.querySelector(".sequence-zone")?.classList.remove("pk-offset");
   els.pkCountdownOverlay.classList.add("hidden");
   els.pkPanel.classList.add("hidden");
   els.modalNext.classList.remove("hidden");

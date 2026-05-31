@@ -2390,6 +2390,11 @@ button.primary:hover {
   justify-content: flex-end;
 }
 
+/* PK mode: shift sequence zone down so the pk-status bar doesn't overlap the hint text */
+.sequence-zone.pk-offset {
+  top: 22%;
+}
+
 /* floating hint badge for process/exclude questions */
 .round-hint-badge {
   position: absolute;
